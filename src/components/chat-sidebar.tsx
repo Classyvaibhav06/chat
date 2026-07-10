@@ -39,6 +39,8 @@ interface ChatSidebarProps {
   apiEndpoint: string
   authToken: string
   onSaveSettings: (endpoint: string, token: string) => void
+  isOpen?: boolean
+  onClose?: () => void
 }
 
 export function ChatSidebar({
@@ -49,7 +51,9 @@ export function ChatSidebar({
   onDeleteSession,
   apiEndpoint,
   authToken,
-  onSaveSettings
+  onSaveSettings,
+  isOpen = false,
+  onClose
 }: ChatSidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [localEndpoint, setLocalEndpoint] = useState(apiEndpoint)
@@ -65,177 +69,198 @@ export function ChatSidebar({
     }, 1500)
   }
 
+  const handleSelectSession = (id: string) => {
+    onSelectSession(id)
+    if (onClose) onClose() // Close mobile sidebar on selection
+  }
+
+  const handleNewChatClick = () => {
+    onNewChat()
+    if (onClose) onClose() // Close mobile sidebar on new chat creation
+  }
+
   return (
-    <div className="w-80 flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 select-none">
-      {/* Header */}
-      <div className="p-4 flex items-center justify-between border-b border-slate-800 bg-slate-950/40">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-500 to-fuchsia-500 shadow-lg text-white">
-            <Sparkles className="w-4.5 h-4.5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-sm leading-none bg-gradient-to-r from-violet-200 to-slate-200 bg-clip-text text-transparent">Qwen3 Studio</h1>
-            <span className="text-[10px] text-violet-400/80 font-medium">v1.0.0 • Tongyi Lab</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 online-glow"></span>
-          <span className="text-[10px] font-semibold text-emerald-500/90 tracking-wide uppercase">Active</span>
-        </div>
-      </div>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div 
+          onClick={onClose}
+          className="fixed inset-0 bg-charcoal/30 backdrop-blur-sm z-30 md:hidden animate-lovable-fade"
+        />
+      )}
 
-      {/* Action Button */}
-      <div className="p-4">
-        <Button 
-          onClick={onNewChat} 
-          variant="premium" 
-          className="w-full flex items-center justify-center gap-2 py-5 font-semibold transition-transform active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4" />
-          New Chat
-        </Button>
-      </div>
-
-      {/* Sessions List */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="px-4 pb-2 text-[10px] font-bold text-slate-500 tracking-wider uppercase">Recent Conversations</div>
-        <ScrollArea className="flex-1 px-2">
-          <div className="space-y-1 py-1">
-            {sessions.length === 0 ? (
-              <div className="text-center py-8 px-4 text-xs text-slate-500 italic">
-                No chats yet. Start one above!
-              </div>
-            ) : (
-              sessions.map((session) => {
-                const isActive = session.id === activeSessionId
-                return (
-                  <div
-                    key={session.id}
-                    onClick={() => onSelectSession(session.id)}
-                    className={cn(
-                      "group relative flex items-center justify-between w-full p-3 rounded-lg text-left text-xs cursor-pointer transition-all duration-200",
-                      isActive 
-                        ? "bg-violet-950/40 text-violet-200 border border-violet-800/50 shadow-inner" 
-                        : "hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 border border-transparent"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <MessageSquare className={cn(
-                        "w-4 h-4 shrink-0 transition-colors",
-                        isActive ? "text-violet-400" : "text-slate-500 group-hover:text-slate-400"
-                      )} />
-                      <span className="truncate pr-4 font-medium">{session.title}</span>
-                    </div>
-                    <button
-                      onClick={(e) => onDeleteSession(session.id, e)}
-                      className={cn(
-                        "p-1 rounded text-slate-500 hover:bg-slate-700/60 hover:text-rose-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-150 absolute right-2",
-                        isActive && "opacity-80 text-violet-400/80"
-                      )}
-                      title="Delete chat"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Bottom Footer Actions */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950/30">
-        <Button 
-          onClick={() => setIsSettingsOpen(true)}
-          variant="ghost" 
-          className="w-full justify-start text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 gap-2.5 px-3 py-4"
-        >
-          <Settings className="w-4 h-4 text-slate-500" />
-          API Settings
-        </Button>
-      </div>
-
-      {/* Settings Modal overlay */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden animate-zoom-in">
-            <div className="flex justify-between items-center px-5 py-4 border-b border-slate-800 bg-slate-950/50">
-              <div className="flex items-center gap-2">
-                <CloudLightning className="w-4.5 h-4.5 text-violet-400" />
-                <h3 className="text-sm font-bold text-slate-200">API Connection Settings</h3>
-              </div>
-              <button 
-                onClick={() => setIsSettingsOpen(false)}
-                className="text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* Sidebar Container */}
+      <div 
+        className={cn(
+          "w-80 flex flex-col h-full bg-warm-sand border-r border-linen-border text-charcoal shrink-0 select-none",
+          "fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 md:z-auto",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Header */}
+        <div className="p-4 flex items-center justify-between border-b border-linen-border bg-parchment/60">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-charcoal text-parchment">
+              <Sparkles className="w-3.5 h-3.5" />
             </div>
-            
-            <div className="p-5 space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-medium">Endpoint URL</label>
-                <input
-                  type="text"
-                  value={localEndpoint}
-                  onChange={(e) => setLocalEndpoint(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-md text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-                  placeholder="Using server environment default"
-                />
-              </div>
+            <div>
+              <h1 className="font-medium text-sm leading-none text-ink tracking-tight">Qwen3 Chat</h1>
+              <span className="text-[10px] text-dim-gray">Studio Workspace</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 bg-parchment border border-linen-border px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span className="text-[9px] font-semibold text-charcoal tracking-wide uppercase">Active</span>
+          </div>
+        </div>
 
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-medium">Authorization Token</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={localToken}
-                    onChange={(e) => setLocalToken(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-md text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 font-mono"
-                    placeholder="Using server environment default"
-                  />
-                  <ShieldCheck className="w-4 h-4 text-slate-600 absolute left-2.5 top-2.5" />
+        {/* Action Button: Dark Pill Button */}
+        <div className="p-4">
+          <Button 
+            onClick={handleNewChatClick} 
+            variant="default" 
+            className="w-full flex items-center justify-center gap-2 py-5 font-medium transition-transform active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4" />
+            New Chat
+          </Button>
+        </div>
+
+        {/* Sessions List */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="px-5 pb-2 text-[10px] font-medium text-dim-gray tracking-wider uppercase">Conversations</div>
+          <ScrollArea className="flex-1 px-3">
+            <div className="space-y-1.5 py-1">
+              {sessions.length === 0 ? (
+                <div className="text-center py-8 px-4 text-xs text-dim-gray italic font-light">
+                  No chats yet. Start one above!
                 </div>
+              ) : (
+                sessions.map((session) => {
+                  const isActive = session.id === activeSessionId
+                  return (
+                    <div
+                      key={session.id}
+                      onClick={() => handleSelectSession(session.id)}
+                      className={cn(
+                        "group relative flex items-center justify-between w-full p-2.5 rounded-[12px] text-left text-xs cursor-pointer border transition-lovable",
+                        isActive 
+                          ? "bg-parchment text-charcoal border-linen-border shadow-sm font-medium" 
+                          : "hover:bg-parchment/65 text-dim-gray hover:text-charcoal border-transparent"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <MessageSquare className={cn(
+                          "w-4 h-4 shrink-0 transition-colors",
+                          isActive ? "text-charcoal" : "text-dim-gray group-hover:text-charcoal"
+                        )} />
+                        <span className="truncate pr-5">{session.title}</span>
+                      </div>
+                      <button
+                        onClick={(e) => onDeleteSession(session.id, e)}
+                        className={cn(
+                          "p-1 rounded-full text-dim-gray hover:bg-warm-sand hover:text-rose-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-150 absolute right-2",
+                          isActive && "opacity-80 text-charcoal"
+                        )}
+                        title="Delete chat"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Bottom Footer Actions */}
+        <div className="p-4 border-t border-linen-border bg-parchment/40">
+          <Button 
+            onClick={() => setIsSettingsOpen(true)}
+            variant="ghost" 
+            className="w-full justify-start text-xs font-normal text-dim-gray hover:text-charcoal hover:bg-parchment/50 gap-2.5 px-3 py-4 rounded-full border border-linen-border bg-parchment shadow-sm"
+          >
+            <Settings className="w-4 h-4 text-dim-gray" />
+            API settings
+          </Button>
+        </div>
+
+        {/* Settings Modal overlay */}
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/30 backdrop-blur-sm animate-lovable-fade">
+            <div className="w-full max-w-md bg-parchment border border-linen-border rounded-[24px] shadow-subtle-2 overflow-hidden animate-lovable-zoom">
+              <div className="flex justify-between items-center px-6 py-4 border-b border-linen-border bg-warm-sand/30">
+                <div className="flex items-center gap-2">
+                  <CloudLightning className="w-4 h-4 text-charcoal" />
+                  <h3 className="text-sm font-medium text-ink">API settings</h3>
+                </div>
+                <button 
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="text-dim-gray hover:text-charcoal transition-colors p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
               
-              <div className="text-[10px] text-slate-500 leading-relaxed bg-slate-950/50 p-2.5 rounded border border-slate-800/60 space-y-1.5">
-                <div>
-                  <span className="font-semibold text-slate-400 block mb-0.5">Proxy Protected</span>
+              <div className="p-6 space-y-4 text-xs">
+                <div className="space-y-1.5">
+                  <label className="text-dim-gray font-medium">Endpoint URL</label>
+                  <input
+                    type="text"
+                    value={localEndpoint}
+                    onChange={(e) => setLocalEndpoint(e.target.value)}
+                    className="w-full px-3 py-2 bg-parchment border border-linen-border rounded-[8px] text-charcoal placeholder-stone focus:outline-none focus:border-stone shadow-subtle"
+                    placeholder="Using server environment default"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-dim-gray font-medium">Authorization Token</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={localToken}
+                      onChange={(e) => setLocalToken(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 bg-parchment border border-linen-border rounded-[8px] text-charcoal placeholder-stone focus:outline-none focus:border-stone shadow-subtle font-mono"
+                      placeholder="Using server environment default"
+                    />
+                    <ShieldCheck className="w-4 h-4 text-dim-gray absolute left-2.5 top-2.5" />
+                  </div>
+                </div>
+                
+                <div className="text-[10px] text-dim-gray leading-relaxed bg-warm-sand p-3.5 rounded-[12px] border border-linen-border">
+                  <span className="font-semibold text-charcoal block mb-0.5">Proxy protected</span>
                   Requests are proxied securely through a server-side Next.js route handler, preventing any CORS errors and protecting your API credentials from direct client-side exposure.
                 </div>
-                <div>
-                  <span className="font-semibold text-slate-400 block mb-0.5">Empty Fields Fallback</span>
-                  Leaving these fields empty defaults to the <code className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 font-mono text-[9px]">.env.local</code> configuration on the host server.
-                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-linen-border bg-warm-sand/30">
+                <Button 
+                  onClick={() => setIsSettingsOpen(false)}
+                  variant="outline" 
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSave}
+                  variant="default"
+                  className="text-xs font-semibold px-4"
+                >
+                  {showSavedToast ? (
+                    <span className="flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5" /> Saved
+                    </span>
+                  ) : (
+                    "Save changes"
+                  )}
+                </Button>
               </div>
             </div>
-
-            <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-800 bg-slate-950/30">
-              <Button 
-                onClick={() => setIsSettingsOpen(false)}
-                variant="ghost" 
-                className="text-xs text-slate-400 hover:text-slate-200"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSave}
-                variant="premium"
-                className="text-xs font-semibold px-4"
-              >
-                {showSavedToast ? (
-                  <span className="flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5" /> Saved
-                  </span>
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   )
 }

@@ -8,6 +8,7 @@ export default function Home() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   
   // Load configurations from local storage or fall back to server env defaults
   const [apiEndpoint, setApiEndpoint] = useState("")
@@ -180,8 +181,8 @@ export default function Home() {
   const activeSession = sessions.find(s => s.id === activeSessionId) || null
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden">
-      {/* Sidebar Panel */}
+    <main className="flex h-screen w-screen overflow-hidden bg-parchment relative">
+      {/* Sidebar Panel - overlay on mobile, static on desktop */}
       <ChatSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -191,6 +192,8 @@ export default function Home() {
         apiEndpoint={apiEndpoint}
         authToken={authToken}
         onSaveSettings={handleSaveSettings}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
       {/* Main Chat Panel */}
@@ -199,6 +202,7 @@ export default function Home() {
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
         activeChatTitle={activeSession ? activeSession.title : ""}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
     </main>
   )

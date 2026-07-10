@@ -11,13 +11,12 @@ import {
   Code2, 
   PenTool, 
   ArrowDown, 
-  RefreshCcw,
-  Copy,
-  Check
+  Copy, 
+  Check,
+  Menu
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Message } from "@/components/chat-sidebar"
 
 interface ChatInterfaceProps {
@@ -25,13 +24,15 @@ interface ChatInterfaceProps {
   onSendMessage: (content: string) => void
   isLoading: boolean
   activeChatTitle: string
+  onToggleSidebar?: () => void
 }
 
 export function ChatInterface({
   messages,
   onSendMessage,
   isLoading,
-  activeChatTitle
+  activeChatTitle,
+  onToggleSidebar
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("")
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -53,7 +54,6 @@ export function ChatInterface({
     }
   }
 
-  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -62,7 +62,6 @@ export function ChatInterface({
     scrollToBottom()
   }, [messages, isLoading])
 
-  // Track scroll position to show "scroll to bottom" button
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget
     const diff = target.scrollHeight - target.scrollTop - target.clientHeight
@@ -75,11 +74,138 @@ export function ChatInterface({
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  // Helper to render markdown-like structures: code blocks, inline code, and text paragraphs
   const renderMessageContent = (content: string, messageId: string) => {
-    // Regex splits by code blocks: ```[lang]\n[code]\n```
     const parts = content.split(/(```[\s\S]*?```)/g)
-    
+
+    const parseMarkdownLine = (line: string, lineIdx: number) => {
+      let currentLine = line
+      
+      // Check for blockquote
+      const isBlockquote = currentLine.startsWith("> ")
+      if (isBlockquote) {
+        currentLine = currentLine.substring(2)
+      }
+
+      // Check for list items
+      const isUnorderedList = currentLine.startsWith("- ") || currentLine.startsWith("* ")
+      const isOrderedList = /^\d+\.\s/.test(currentLine)
+
+      if (isUnorderedList) {
+        currentLine = currentLine.substring(2)
+      } else if (isOrderedList) {
+        const match = currentLine.match(/^(\d+\.\s)/)
+        if (match) {
+          currentLine = currentLine.substring(match[0].length)
+        }
+      }
+
+      // Check for headings
+      const headingMatch = currentLine.match(/^(#{1,6})\s/)
+      const isHeading = !!headingMatch
+      let headingLevel = 0
+      if (isHeading && headingMatch) {
+        headingLevel = headingMatch[1].length
+        currentLine = currentLine.substring(headingMatch[0].length)
+      }
+
+      // Inline formatter: parses inline code, bold, italics
+      const renderInline = (inputText: string) => {
+        // Split by inline code: `code`
+        const codeParts = inputText.split(/(`[^`]+`)/g)
+
+        return codeParts.flatMap((part, pIdx) => {
+          if (part.startsWith("`") && part.endsWith("`")) {
+            return (
+              <code key={`code-${pIdx}`} className="px-1.5 py-0.5 rounded bg-warm-sand text-indigo-accent font-mono text-xs border border-linen-border">
+                {part.slice(1, -1)}
+              </code>
+            )
+          }
+
+          // Parse bold: **bold**
+          const boldParts = part.split(/(\*\*[^*]+\*\*)/g)
+          return boldParts.flatMap((bPart, bIdx) => {
+            if (bPart.startsWith("**") && bPart.endsWith("**")) {
+              return (
+                <strong key={`bold-${bIdx}`} className="font-semibold text-ink">
+                  {bPart.slice(2, -2)}
+                </strong>
+              )
+            }
+
+            // Parse italics: *italics*
+            const italicParts = bPart.split(/(\*[^*]+\*)/g)
+            return italicParts.map((iPart, iIdx) => {
+              if (iPart.startsWith("*") && iPart.endsWith("*")) {
+                return (
+                  <em key={`ital-${iIdx}`} className="italic">
+                    {iPart.slice(1, -1)}
+                  </em>
+                )
+              }
+              return iPart
+            })
+          })
+        })
+      }
+
+      const contentNode = renderInline(currentLine)
+
+      // Render wrapper elements
+      if (isBlockquote) {
+        return (
+          <blockquote key={lineIdx} className="pl-3.5 py-0.5 border-l-2 border-stone text-dim-gray italic my-1 font-light">
+            {contentNode}
+          </blockquote>
+        )
+      }
+
+      if (isUnorderedList) {
+        return (
+          <li key={lineIdx} className="list-disc ml-5 my-0.5 text-charcoal">
+            {contentNode}
+          </li>
+        )
+      }
+
+      if (isOrderedList) {
+        return (
+          <li key={lineIdx} className="list-decimal ml-5 my-0.5 text-charcoal">
+            {contentNode}
+          </li>
+        )
+      }
+
+      if (isHeading) {
+        const headingClasses = [
+          "text-xl font-medium text-ink mt-3 mb-1", // h1
+          "text-lg font-medium text-ink mt-2 mb-1", // h2
+          "text-base font-medium text-ink mt-2 mb-0.5", // h3
+          "text-sm font-semibold text-ink mt-1.5", // h4
+          "text-xs font-semibold text-ink", // h5
+          "text-xs font-semibold text-dim-gray", // h6
+        ]
+        const level = Math.min(headingLevel, 6)
+        const Tag = `h${level}` as any
+        return (
+          <Tag key={lineIdx} className={headingClasses[level - 1]}>
+            {contentNode}
+          </Tag>
+        )
+      }
+
+      // Empty line -> spacing
+      if (currentLine.trim() === "") {
+        return <div key={lineIdx} className="h-2" />
+      }
+
+      return (
+        <p key={lineIdx} className="my-1 leading-relaxed">
+          {contentNode}
+        </p>
+      )
+    }
+
     return parts.map((part, idx) => {
       if (part.startsWith("```")) {
         const match = part.match(/```(\w*)\n([\s\S]*?)```/)
@@ -88,19 +214,19 @@ export function ChatInterface({
         const blockId = `${messageId}-code-${idx}`
 
         return (
-          <div key={idx} className="my-4 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 font-mono text-[11px] shadow-lg">
-            <div className="flex items-center justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-800/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider select-none">
-              <span className="flex items-center gap-1.5">
-                <Terminal className="w-3.5 h-3.5 text-violet-400" />
+          <div key={idx} className="my-4 rounded-[12px] overflow-hidden border border-linen-border bg-parchment font-mono text-[11px] shadow-sm">
+            <div className="flex items-center justify-between px-4 py-2 bg-warm-sand border-b border-linen-border text-[10px] text-dim-gray font-medium uppercase tracking-wider select-none">
+              <span className="flex items-center gap-1.5 font-semibold text-charcoal">
+                <Terminal className="w-3.5 h-3.5 text-charcoal" />
                 {language || "code"}
               </span>
               <button 
                 onClick={() => copyToClipboard(code.trim(), blockId)}
-                className="flex items-center gap-1 hover:text-slate-200 transition-colors text-[10px]"
+                className="flex items-center gap-1 hover:text-charcoal transition-colors text-[10px]"
               >
                 {copiedId === blockId ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
                     Copied
                   </>
                 ) : (
@@ -111,73 +237,72 @@ export function ChatInterface({
                 )}
               </button>
             </div>
-            <pre className="p-4 overflow-x-auto text-slate-300 leading-relaxed font-mono">
+            <pre className="p-4 overflow-x-auto text-charcoal leading-relaxed font-mono">
               <code>{code.trim()}</code>
             </pre>
           </div>
         )
       }
 
-      // Inline code rendering: `code`
-      const inlineParts = part.split(/(`[^`]+`)/g)
+      // Parse markdown in text blocks
+      const lines = part.split("\n")
       return (
-        <span key={idx} className="whitespace-pre-wrap leading-relaxed text-sm">
-          {inlineParts.map((subPart, subIdx) => {
-            if (subPart.startsWith("`") && subPart.endsWith("`")) {
-              return (
-                <code key={subIdx} className="px-1.5 py-0.5 rounded bg-slate-800 text-violet-300 font-mono text-xs border border-slate-700/50">
-                  {subPart.slice(1, -1)}
-                </code>
-              )
-            }
-            return subPart
-          })}
-        </span>
+        <div key={idx} className="text-sm">
+          {lines.map((line, lIdx) => parseMarkdownLine(line, lIdx))}
+        </div>
       )
     })
   }
 
-  // Quick Action Suggestions for Empty State
   const suggestions = [
     {
-      icon: <Compass className="w-4 h-4 text-emerald-400" />,
-      title: "Explain a Concept",
+      icon: <Compass className="w-4 h-4 text-charcoal" />,
+      title: "Explain a concept",
       description: "Explain quantum computing in simple terms for a beginner.",
       prompt: "Explain quantum computing in simple terms for a beginner."
     },
     {
-      icon: <Code2 className="w-4 h-4 text-violet-400" />,
+      icon: <Code2 className="w-4 h-4 text-charcoal" />,
       title: "Debug / Code",
       description: "Write a React hook to fetch API data with abort controller.",
       prompt: "Write a standard React custom hook to fetch data from an API, including an abort controller to prevent memory leaks."
     },
     {
-      icon: <PenTool className="w-4 h-4 text-amber-400" />,
-      title: "Creative Writing",
+      icon: <PenTool className="w-4 h-4 text-charcoal" />,
+      title: "Creative writing",
       description: "Draft a friendly email explaining a project delay to client.",
       prompt: "Write a professional but friendly email to a client explaining that our website design phase is delayed by 3 days, but assuring them of top-notch quality."
     }
   ]
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-950 text-slate-100 relative min-w-0">
-      {/* Top Navigation Bar */}
-      <header className="h-16 flex items-center justify-between px-6 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md z-10">
+    <div className="flex-grow flex flex-col h-full bg-parchment text-charcoal relative min-w-0">
+      {/* Sticky Navigation Bar */}
+      <header className="h-16 flex items-center justify-between px-6 border-b border-linen-border bg-parchment/80 backdrop-blur-[4px] z-10">
         <div className="flex items-center gap-3">
+          {/* Menu Hamburger Toggle on Mobile */}
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="p-2 rounded-full hover:bg-warm-sand border border-transparent hover:border-linen-border text-charcoal md:hidden transition-lovable"
+              title="Open sidebar"
+            >
+              <Menu className="w-4.5 h-4.5" />
+            </button>
+          )}
+
           <div className="relative">
-            <Avatar className="w-9 h-9 border border-violet-500/20 bg-slate-900 flex items-center justify-center">
-              <AvatarFallback className="bg-slate-900 text-violet-400">
-                <Bot className="w-5 h-5 text-violet-400" />
+            <Avatar className="w-8 h-8 border border-linen-border bg-warm-sand flex items-center justify-center">
+              <AvatarFallback className="bg-warm-sand text-charcoal">
+                <Bot className="w-4.5 h-4.5 text-charcoal" />
               </AvatarFallback>
             </Avatar>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-950 absolute -bottom-0.5 -right-0.5 online-glow"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 border-2 border-parchment absolute -bottom-0.5 -right-0.5"></span>
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-200">{activeChatTitle || "New Conversation"}</h2>
-            <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5">
-              <span>Qwen3 LLM</span>
-              <span>•</span>
-              <span className="text-emerald-500/90 font-semibold uppercase tracking-wider">Online</span>
+            <h2 className="text-xs font-semibold text-ink leading-tight">{activeChatTitle || "New Conversation"}</h2>
+            <p className="text-[10px] text-dim-gray font-light">
+              Qwen3 LLM • Active downline
             </p>
           </div>
         </div>
@@ -185,91 +310,88 @@ export function ChatInterface({
 
       {/* Main Chat Messages Panel */}
       <div 
-        className="flex-1 overflow-y-auto px-6 py-6"
+        className="flex-grow overflow-y-auto px-6 py-6"
         onScroll={handleScroll}
         ref={scrollAreaRef}
       >
         <div className="max-w-3xl mx-auto h-full flex flex-col">
           {messages.length === 0 ? (
-            /* Welcome / Empty State */
-            <div className="flex-grow flex flex-col items-center justify-center text-center px-4 animate-fade-in my-auto py-12">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30 flex items-center justify-center shadow-2xl mb-6 text-violet-400 animate-pulse-glow">
-                <Sparkles className="w-8 h-8" />
+            /* Welcome / Empty Hero State */
+            <div className="flex-grow flex flex-col items-center justify-center text-center px-4 my-auto py-12">
+              {/* Prismatic Horizon Gradient backdrop */}
+              <div className="w-full h-[6px] rounded-full hero-gradient-horizon mb-10 opacity-80" />
+
+              <div className="w-12 h-12 rounded-full bg-warm-sand border border-linen-border flex items-center justify-center mb-6 text-charcoal shadow-sm">
+                <Sparkles className="w-5 h-5 text-charcoal" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2">
-                Discover the Power of Qwen3
+              <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-ink mb-3 max-w-lg leading-tight">
+                Quiet space inside a creative intelligence
               </h1>
-              <p className="text-sm text-slate-400 max-w-md leading-relaxed mb-10">
-                Hi! I'm your AI assistant powered by Qwen3. Ask me anything, or start with one of the quick suggestions below.
+              <p className="text-sm text-dim-gray max-w-md leading-relaxed mb-10 font-light">
+                Hello! I am Qwen3. Share your thoughts or select a preset idea below to start our conversation.
               </p>
 
-              {/* Suggestions Cards Grid */}
+              {/* Suggestions Cards Grid - Warm Surface Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
                 {suggestions.map((s, idx) => (
                   <div
                     key={idx}
                     onClick={() => onSendMessage(s.prompt)}
-                    className="p-4 text-left border border-slate-900 rounded-xl bg-slate-900/30 hover:bg-slate-900/60 hover:border-violet-500/40 cursor-pointer transition-all duration-200 group hover:-translate-y-0.5 shadow-sm"
+                    className="p-5 text-left rounded-[24px] bg-warm-sand hover:bg-parchment hover:border-stone cursor-pointer transition-lovable border border-transparent group hover:shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="p-1.5 rounded bg-slate-950/60 border border-slate-800">
+                      <div className="p-1 rounded-full bg-parchment border border-linen-border">
                         {s.icon}
                       </div>
-                      <span className="text-xs font-semibold text-slate-200 group-hover:text-violet-300 transition-colors">{s.title}</span>
+                      <span className="text-xs font-semibold text-charcoal group-hover:text-ink">{s.title}</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-normal">{s.description}</p>
+                    <p className="text-[11px] text-dim-gray leading-normal font-light">{s.description}</p>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
             /* Messages List */
-            <div className="space-y-6 pb-24">
+            <div className="space-y-6 pb-28">
               {messages.map((message) => {
                 const isUser = message.role === "user"
                 return (
                   <div
                     key={message.id}
-                    className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"} animate-slide-up`}
+                    className={`flex gap-3.5 ${isUser ? "justify-end" : "justify-start"} animate-lovable-fade`}
                   >
-                    {/* Avatar on left for assistant */}
+                    {/* Bot Avatar */}
                     {!isUser && (
-                      <Avatar className="w-8 h-8 border border-slate-800 shrink-0 bg-slate-900 flex items-center justify-center">
-                        <AvatarFallback className="bg-slate-900 text-violet-400">
-                          <Bot className="w-4 h-4 text-violet-400" />
+                      <Avatar className="w-7 h-7 border border-linen-border shrink-0 bg-warm-sand flex items-center justify-center mt-1">
+                        <AvatarFallback className="bg-warm-sand text-charcoal">
+                          <Bot className="w-3.5 h-3.5 text-charcoal" />
                         </AvatarFallback>
                       </Avatar>
                     )}
 
-                    {/* Chat Bubble Wrapper */}
-                    <div className={`flex flex-col max-w-[80%] ${isUser ? "items-end" : "items-start"}`}>
-                      {/* Name / Role Header */}
-                      <span className="text-[10px] text-slate-500 font-semibold mb-1 px-1 tracking-wide uppercase select-none">
-                        {isUser ? "You" : "Qwen3 AI"}
-                      </span>
-                      
-                      {/* Content Bubble */}
+                    <div className={`flex flex-col max-w-[82%] ${isUser ? "items-end" : "items-start"}`}>
+                      {/* Message Bubble */}
                       <div
-                        className={`rounded-2xl px-4 py-3 text-slate-200 leading-relaxed shadow-sm transition-all ${
+                        className={`px-4 py-3 text-sm transition-all ${
                           isUser 
-                            ? "chat-bubble-user rounded-tr-none" 
-                            : "chat-bubble-assistant rounded-tl-none"
+                            ? "chat-bubble-user" 
+                            : "chat-bubble-assistant"
                         }`}
                       >
                         {renderMessageContent(message.content, message.id)}
                       </div>
                       
                       {/* Timestamp */}
-                      <span className="text-[9px] text-slate-600 mt-1.5 px-1 select-none font-medium">
-                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="text-[9px] text-dim-gray mt-1.5 px-1 font-light select-none">
+                        {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
 
-                    {/* Avatar on right for user */}
+                    {/* User Avatar */}
                     {isUser && (
-                      <Avatar className="w-8 h-8 border border-slate-800 shrink-0 bg-slate-900 flex items-center justify-center">
-                        <AvatarFallback className="bg-slate-800 text-slate-200">
-                          <User className="w-4 h-4 text-slate-300" />
+                      <Avatar className="w-7 h-7 border border-linen-border shrink-0 bg-parchment flex items-center justify-center mt-1">
+                        <AvatarFallback className="bg-parchment text-charcoal">
+                          <User className="w-3.5 h-3.5 text-charcoal" />
                         </AvatarFallback>
                       </Avatar>
                     )}
@@ -277,26 +399,24 @@ export function ChatInterface({
                 )
               })}
 
-              {/* Typing loader */}
+              {/* Typing indicator */}
               {isLoading && (
-                <div className="flex gap-4 justify-start animate-slide-up">
-                  <Avatar className="w-8 h-8 border border-slate-800 shrink-0 bg-slate-900 flex items-center justify-center">
-                    <AvatarFallback className="bg-slate-900 text-violet-400">
-                      <Bot className="w-4 h-4 text-violet-400" />
+                <div className="flex gap-3.5 justify-start animate-lovable-fade">
+                  <Avatar className="w-7 h-7 border border-linen-border shrink-0 bg-warm-sand flex items-center justify-center">
+                    <AvatarFallback className="bg-warm-sand text-charcoal">
+                      <Bot className="w-3.5 h-3.5 text-charcoal" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col items-start">
-                    <span className="text-[10px] text-slate-500 font-semibold mb-1 px-1 tracking-wide uppercase select-none">Qwen3 AI</span>
-                    <div className="chat-bubble-assistant rounded-2xl rounded-tl-none px-5 py-3.5 flex items-center gap-1 shadow-sm">
-                      <span className="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-2 h-2 rounded-full bg-violet-400 animate-bounce"></span>
+                    <div className="chat-bubble-assistant px-4 py-3 flex items-center gap-1.5 shadow-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-charcoal animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-charcoal animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-charcoal animate-bounce"></span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Bottom scroll anchor */}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -307,38 +427,40 @@ export function ChatInterface({
       {showScrollButton && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-28 right-8 z-20 p-2.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 shadow-xl hover:scale-105 active:scale-95 transition-all duration-150"
+          className="absolute bottom-28 right-8 z-20 p-2.5 rounded-full bg-parchment border border-linen-border text-dim-gray hover:text-charcoal hover:scale-105 active:scale-95 transition-lovable shadow-sm"
         >
           <ArrowDown className="w-4 h-4" />
         </button>
       )}
 
-      {/* Bottom Input Area Panel */}
-      <div className="p-4 border-t border-slate-900 bg-slate-950/90 backdrop-blur-md sticky bottom-0">
-        <form onSubmit={handleSend} className="max-w-3xl mx-auto relative flex items-end gap-2.5">
-          <div className="relative flex-1 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-violet-500/50 shadow-inner transition-colors">
+      {/* Bottom Input Area: Chat Input Card */}
+      <div className="p-4 border-t border-linen-border bg-parchment/90 backdrop-blur-[4px] sticky bottom-0">
+        <form onSubmit={handleSend} className="max-w-3xl mx-auto relative flex items-end gap-3">
+          {/* Chat Input Card container */}
+          <div className="flex-grow flex items-center gap-2.5 bg-warm-sand border border-linen-border/40 rounded-[24px] px-4 py-3.5 shadow-subtle-2 focus-within:border-stone/60 transition-lovable">
             <textarea
               rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              className="w-full pl-4 pr-12 py-3.5 bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none resize-none text-xs leading-normal min-h-[46px] max-h-[140px]"
-              placeholder="Ask Qwen3 anything..."
+              className="flex-grow bg-transparent text-charcoal placeholder-dim-gray focus:outline-none resize-none text-sm leading-normal max-h-[140px]"
+              placeholder="Type your prompt ideas..."
             />
-            {/* Action buttons inside input box if needed, or simply handle send outside */}
+            
+            {/* Prismatic Horizon Circle Send Button */}
+            <Button
+              type="submit"
+              disabled={!input.trim() || isLoading}
+              variant="gradientCircle"
+              className="w-7 h-7 shrink-0"
+              title="Send prompt"
+            >
+              <SendHorizontal className="w-3.5 h-3.5 text-parchment" />
+            </Button>
           </div>
-          
-          <Button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            variant="premium"
-            className="rounded-xl h-[46px] w-[46px] p-0 flex items-center justify-center shrink-0 shadow-lg active:scale-95 transition-transform"
-          >
-            <SendHorizontal className="w-4.5 h-4.5" />
-          </Button>
         </form>
-        <div className="max-w-3xl mx-auto mt-2 text-[10px] text-center text-slate-600 font-medium select-none">
-          Press <kbd className="px-1 py-0.5 rounded bg-slate-900 text-slate-500 border border-slate-800/80">Enter</kbd> to send, <kbd className="px-1 py-0.5 rounded bg-slate-900 text-slate-500 border border-slate-800/80">Shift + Enter</kbd> for new line.
+        <div className="max-w-3xl mx-auto mt-2 text-[10px] text-center text-dim-gray font-light select-none">
+          Press <kbd className="px-1 py-0.5 rounded bg-warm-sand text-charcoal border border-linen-border font-mono text-[9px]">Enter</kbd> to send, <kbd className="px-1 py-0.5 rounded bg-warm-sand text-charcoal border border-linen-border font-mono text-[9px]">Shift + Enter</kbd> for newline.
         </div>
       </div>
     </div>
