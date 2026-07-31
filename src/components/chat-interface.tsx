@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Message } from "@/components/chat-sidebar"
+import { cn } from "@/lib/utils"
 
 interface ChatInterfaceProps {
   messages: Message[]
@@ -25,6 +26,8 @@ interface ChatInterfaceProps {
   isLoading: boolean
   activeChatTitle: string
   onToggleSidebar?: () => void
+  selectedModel?: "qwen" | "grok" | "kimi"
+  onSelectModel?: (model: "qwen" | "grok" | "kimi") => void
 }
 
 export function ChatInterface({
@@ -32,7 +35,9 @@ export function ChatInterface({
   onSendMessage,
   isLoading,
   activeChatTitle,
-  onToggleSidebar
+  onToggleSidebar,
+  selectedModel = "qwen",
+  onSelectModel
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("")
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -302,9 +307,49 @@ export function ChatInterface({
           <div>
             <h2 className="text-xs font-semibold text-ink leading-tight">{activeChatTitle || "New Conversation"}</h2>
             <p className="text-[10px] text-dim-gray font-light">
-              Qwen3 LLM • Active downline
+              {selectedModel === "grok" ? "Grok 4.5-Free" : selectedModel === "kimi" ? "Kimi K3 (TokenRouter)" : "Qwen3 LLM"} • Active downline
             </p>
           </div>
+        </div>
+
+        {/* Model Toggle Switch - Lovable Achromatic Pill style */}
+        <div className="flex items-center bg-warm-sand border border-linen-border p-0.5 rounded-full shadow-subtle select-none">
+          <button
+            type="button"
+            onClick={() => onSelectModel?.("qwen")}
+            className={cn(
+              "px-3 py-1 text-[10px] font-medium tracking-tight rounded-full transition-lovable",
+              selectedModel === "qwen"
+                ? "bg-charcoal text-parchment shadow-sm"
+                : "text-dim-gray hover:text-charcoal"
+            )}
+          >
+            Qwen3
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectModel?.("grok")}
+            className={cn(
+              "px-3 py-1 text-[10px] font-medium tracking-tight rounded-full transition-lovable",
+              selectedModel === "grok"
+                ? "bg-charcoal text-parchment shadow-sm"
+                : "text-dim-gray hover:text-charcoal"
+            )}
+          >
+            Grok 4.5
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectModel?.("kimi")}
+            className={cn(
+              "px-3 py-1 text-[10px] font-medium tracking-tight rounded-full transition-lovable",
+              selectedModel === "kimi"
+                ? "bg-charcoal text-parchment shadow-sm"
+                : "text-dim-gray hover:text-charcoal"
+            )}
+          >
+            Kimi K3
+          </button>
         </div>
       </header>
 

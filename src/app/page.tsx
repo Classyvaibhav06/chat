@@ -9,6 +9,7 @@ export default function Home() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<"qwen" | "grok" | "kimi">("qwen")
   
   // Load configurations from local storage or fall back to server env defaults
   const [apiEndpoint, setApiEndpoint] = useState("")
@@ -132,7 +133,8 @@ export default function Home() {
         body: JSON.stringify({
           message: content,
           apiEndpoint,
-          authToken
+          authToken,
+          model: selectedModel
         })
       })
 
@@ -163,7 +165,7 @@ export default function Home() {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `⚠️ Error: ${error?.message || "Failed to communicate with Qwen3 API. Please double-check your API Endpoint and Authorization Token in Settings."}`,
+        content: `⚠️ Error: ${error?.message || "Failed to communicate with the selected model API. Please double-check your API Configurations and Authorization Tokens."}`,
         timestamp: Date.now()
       }
       
@@ -203,6 +205,8 @@ export default function Home() {
         isLoading={isLoading}
         activeChatTitle={activeSession ? activeSession.title : ""}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        selectedModel={selectedModel}
+        onSelectModel={setSelectedModel}
       />
     </main>
   )
